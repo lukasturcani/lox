@@ -69,7 +69,7 @@ enum TokenType {
     GreaterThanOrEqual,
     LessThan,
     LessThanOrEqual,
-    Identifier,
+    Identifier(String),
     String(String),
     Number(f32),
     And,
