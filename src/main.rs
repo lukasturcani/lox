@@ -48,7 +48,7 @@ fn run_prompt() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum TokenType {
     LeftBracket,
     RightBracket,
@@ -90,18 +90,18 @@ enum TokenType {
     While,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct Token {
     line: usize,
     r#type: TokenType,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct ScanErrors {
     errors: Vec<ScanError>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum ScanError {
     UnexpectedCharacter { character: char, line: usize },
     UnterminatedString,
@@ -124,77 +124,75 @@ struct Scanner {
 impl Scanner {
     fn scan_tokens(mut self, source: &[u8]) -> Result<Vec<Token>, ScanErrors> {
         self.start = 0;
-        self.current = 1;
+        self.current = 0;
         self.line = 1;
         while self.current < source.len() {
-            let chars = &source[self.start..self.current];
-            match chars {
-                b"(" => self.add_token(TokenType::LeftBracket),
-                b")" => self.add_token(TokenType::RightBracket),
-                b"{" => self.add_token(TokenType::LeftBrace),
-                b"}" => self.add_token(TokenType::RightBrace),
-                b"," => self.add_token(TokenType::Comma),
-                b"." => self.add_token(TokenType::Dot),
-                b"-" => self.add_token(TokenType::Minus),
-                b"+" => self.add_token(TokenType::Plus),
-                b";" => self.add_token(TokenType::Semicolon),
-                b"*" => self.add_token(TokenType::Star),
-                b"!" => {
-                    if source[self.current] == b'=' {
+            match source[self.current] {
+                b'(' => self.add_token(TokenType::LeftBracket),
+                b')' => self.add_token(TokenType::RightBracket),
+                b'{' => self.add_token(TokenType::LeftBrace),
+                b'}' => self.add_token(TokenType::RightBrace),
+                b',' => self.add_token(TokenType::Comma),
+                b'.' => self.add_token(TokenType::Dot),
+                b'-' => self.add_token(TokenType::Minus),
+                b'+' => self.add_token(TokenType::Plus),
+                b';' => self.add_token(TokenType::Semicolon),
+                b'*' => self.add_token(TokenType::Star),
+                b'!' => {
+                    if self.peek(source) == b'=' {
                         self.current += 1;
                         self.add_token(TokenType::NotEqual)
                     } else {
                         self.add_token(TokenType::Not)
                     }
                 }
-                b"=" => {
-                    if source[self.current] == b'=' {
+                b'=' => {
+                    if self.peek(source) == b'=' {
                         self.current += 1;
                         self.add_token(TokenType::Equal)
                     } else {
                         self.add_token(TokenType::Assign)
                     }
                 }
-                b"<" => {
-                    if source[self.current] == b'=' {
+                b'<' => {
+                    if self.peek(source) == b'=' {
                         self.current += 1;
                         self.add_token(TokenType::LessThanOrEqual)
                     } else {
                         self.add_token(TokenType::LessThan)
                     }
                 }
-                b">" => {
-                    if source[self.current] == b'=' {
+                b'>' => {
+                    if self.peek(source) == b'=' {
                         self.current += 1;
                         self.add_token(TokenType::GreaterThanOrEqual)
                     } else {
                         self.add_token(TokenType::GreaterThan)
                     }
                 }
-                b"/" => {
-                    if source[self.current] == b'/' {
+                b'/' => {
+                    if self.peek(source) == b'/' {
                         self.current += 1;
-                        while self.current < source.len() && source[self.current] != b'\n' {
+                        while self.current < source.len() && self.peek(source) != b'\n' {
                             self.current += 1;
                         }
-                        self.start = self.current;
                         self.current += 1;
                     } else {
                         self.add_token(TokenType::Slash)
                     }
                 }
-                b" " | b"\t" | b"\r" => {
-                    self.start = self.current;
+                b' ' | b'\t' | b'\r' => {
                     self.current += 1;
+                    self.start = self.current;
                 }
-                b"\n" => {
-                    self.start = self.current;
+                b'\n' => {
                     self.current += 1;
+                    self.start = self.current;
                     self.line += 1;
                 }
-                b"\"" => {
-                    while self.current < source.len() && source[self.current] != b'\"' {
-                        if source[self.current - 1] == b'\n' {
+                b'\"' => {
+                    while self.current < source.len() && self.peek(source) != b'\"' {
+                        if source[self.current] == b'\n' {
                             self.line += 1;
                         }
                         self.current += 1;
@@ -216,8 +214,8 @@ impl Scanner {
                         character: source[self.current].into(),
                         line: self.line,
                     });
-                    self.start = self.current;
                     self.current += 1;
+                    self.start = self.current;
                 }
             }
         }
@@ -234,8 +232,15 @@ impl Scanner {
             r#type: token,
             line: self.line,
         });
-        self.start = self.current;
         self.current += 1;
+        self.start = self.current;
+    }
+    fn peek(&self, source: &[u8]) -> u8 {
+        if self.current + 1 < source.len() {
+            source[self.current + 1]
+        } else {
+            b'\0'
+        }
     }
 }
 
@@ -245,4 +250,88 @@ fn print_error(line: usize, message: &str) {
 
 fn report_error(line: usize, r#where: &str, message: &str) {
     eprintln!("[line {line}] Error {where}: {message}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scan() {
+        let tokens = scan_tokens(
+            b"
+                // this is a comment
+                (( )){} // grouping stuff
+                !*+-/=<> <= == // operators",
+        );
+        assert_eq!(
+            tokens,
+            Ok(vec![
+                Token {
+                    line: 3,
+                    r#type: TokenType::LeftBracket,
+                },
+                Token {
+                    line: 3,
+                    r#type: TokenType::LeftBracket,
+                },
+                Token {
+                    line: 3,
+                    r#type: TokenType::RightBracket,
+                },
+                Token {
+                    line: 3,
+                    r#type: TokenType::RightBracket,
+                },
+                Token {
+                    line: 3,
+                    r#type: TokenType::LeftBrace,
+                },
+                Token {
+                    line: 3,
+                    r#type: TokenType::RightBrace,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::Not,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::Star,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::Plus,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::Minus,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::Slash,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::Assign,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::LessThan,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::GreaterThan,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::LessThanOrEqual,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::Equal,
+                },
+            ])
+        )
+    }
 }
