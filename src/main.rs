@@ -71,7 +71,7 @@ enum TokenType {
     LessThanOrEqual,
     Identifier,
     String(String),
-    Number,
+    Number(f32),
     And,
     Class,
     Else,
@@ -104,8 +104,10 @@ struct ScanErrors {
 #[derive(Debug, PartialEq)]
 enum ScanError {
     UnexpectedCharacter { character: char, line: usize },
-    UnterminatedString,
-    InvalidString(FromUtf8Error),
+    UnterminatedString { line: usize },
+    InvalidString { line: usize, error: FromUtf8Error },
+    InvalidNumber { line: usize, number: String },
+    InvalidUtf8 { line: usize, bytes: Vec<u8> },
 }
 
 fn scan_tokens(source: &[u8]) -> Result<Vec<Token>, ScanErrors> {
@@ -198,16 +200,48 @@ impl Scanner {
                         self.current += 1;
                     }
                     if self.current == source.len() {
-                        self.errors.push(ScanError::UnterminatedString);
+                        self.errors
+                            .push(ScanError::UnterminatedString { line: self.line });
                     } else {
                         self.current += 1;
                         match String::from_utf8(source[self.start + 1..self.current].into()) {
                             Ok(literal) => {
                                 self.add_token(TokenType::String(literal));
                             }
-                            Err(error) => self.errors.push(ScanError::InvalidString(error)),
+                            Err(error) => self.errors.push(ScanError::InvalidString {
+                                line: self.line,
+                                error,
+                            }),
                         }
                     }
+                }
+                digit if digit.is_ascii_digit() => {
+                    while self.current < source.len() && source[self.current].is_ascii_digit() {
+                        self.current += 1;
+                    }
+                    if source[self.current] == b'.' {
+                        self.current += 1;
+                    }
+                    while self.current < source.len() && source[self.current].is_ascii_digit() {
+                        self.current += 1;
+                    }
+                    match std::str::from_utf8(&source[self.start..self.current]) {
+                        Ok(number_string) => match number_string.parse() {
+                            Ok(number) => self.tokens.push(Token {
+                                line: self.line,
+                                r#type: TokenType::Number(number),
+                            }),
+                            Err(_) => self.errors.push(ScanError::InvalidNumber {
+                                line: self.line,
+                                number: number_string.into(),
+                            }),
+                        },
+                        Err(_) => self.errors.push(ScanError::InvalidUtf8 {
+                            line: self.line,
+                            bytes: source[self.start..self.current].into(),
+                        }),
+                    }
+                    self.start = self.current;
                 }
                 _ => {
                     self.errors.push(ScanError::UnexpectedCharacter {
