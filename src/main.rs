@@ -219,7 +219,7 @@ impl Scanner {
                     while self.current < source.len() && source[self.current].is_ascii_digit() {
                         self.current += 1;
                     }
-                    if source[self.current] == b'.' {
+                    if source[self.current] == b'.' && self.peek(source).is_ascii_digit() {
                         self.current += 1;
                     }
                     while self.current < source.len() && source[self.current].is_ascii_digit() {
@@ -296,7 +296,9 @@ mod tests {
             b"
                 // this is a comment
                 (( )){} // grouping stuff
-                !*+-/=<> <= == // operators",
+                !*+-/=<> <= == // operators
+                123 453.493  // numbers
+                \"hello\" // strings ",
         );
         assert_eq!(
             tokens,
@@ -365,6 +367,18 @@ mod tests {
                     line: 4,
                     r#type: TokenType::Equal,
                 },
+                Token {
+                    line: 5,
+                    r#type: TokenType::Number(123.0)
+                },
+                Token {
+                    line: 5,
+                    r#type: TokenType::Number(453.493),
+                },
+                Token {
+                    line: 6,
+                    r#type: TokenType::String("hello".into())
+                }
             ])
         )
     }
