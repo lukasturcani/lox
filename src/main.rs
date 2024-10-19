@@ -67,6 +67,10 @@ enum TokenType {
     EndOfFile,
     Bang,
     NotEqual,
+    Equal,
+    Assign,
+    LessThan,
+    LessThanOrEqual,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -128,6 +132,20 @@ impl Scanner {
                         self.add_token(TokenType::Bang);
                     }
                 }
+                b'=' => {
+                    if self.r#match(source, b'=') {
+                        self.add_token(TokenType::Equal);
+                    } else {
+                        self.add_token(TokenType::Assign);
+                    }
+                }
+                b'<' => {
+                    if self.r#match(source, b'=') {
+                        self.add_token(TokenType::LessThanOrEqual)
+                    } else {
+                        self.add_token(TokenType::LessThan)
+                    }
+                }
                 unexpected => {
                     self.errors.push(ScanError::UnexpectedCharacter {
                         character: unexpected as char,
@@ -181,7 +199,7 @@ mod tests {
 
     #[test]
     fn test_scan() {
-        let tokens = scan_tokens(b"(){}!=!");
+        let tokens = scan_tokens(b"(){}!=!(===<<=");
         assert_eq!(
             tokens,
             Ok(vec![
@@ -208,6 +226,26 @@ mod tests {
                 Token {
                     line: 1,
                     r#type: TokenType::Bang,
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::LeftBracket,
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::Equal,
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::Assign,
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::LessThan,
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::LessThanOrEqual
                 },
                 Token {
                     line: 1,
