@@ -159,10 +159,10 @@ impl Scanner {
                 b'/' => {
                     if self.r#match(source, b'/') {
                         while let Some(&p) = self.peek(source) {
+                            self.current += 1;
                             if p == b'\n' {
                                 break;
                             }
-                            self.current += 1
                         }
                         self.start = self.current;
                     } else {
@@ -230,10 +230,10 @@ mod tests {
 
     #[test]
     fn test_scan() {
-        let tokens = scan_tokens(b"(){}!=!(===<<=>>=");
+        let tokens = scan_tokens(b"(){}!=!(===<<=>>=").unwrap();
         assert_eq!(
             tokens,
-            Ok(vec![
+            vec![
                 Token {
                     line: 1,
                     r#type: TokenType::LeftBracket,
@@ -290,7 +290,88 @@ mod tests {
                     line: 1,
                     r#type: TokenType::EndOfFile,
                 },
-            ])
+            ]
+        );
+        let tokens = scan_tokens(
+            b"
+                // this is a comment
+                (( )){} // grouping stuff
+                !*+-/=<> <= == // operators
+            ",
         )
+        .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token {
+                    line: 3,
+                    r#type: TokenType::LeftBracket,
+                },
+                Token {
+                    line: 3,
+                    r#type: TokenType::LeftBracket,
+                },
+                Token {
+                    line: 3,
+                    r#type: TokenType::RightBracket,
+                },
+                Token {
+                    line: 3,
+                    r#type: TokenType::RightBracket,
+                },
+                Token {
+                    line: 3,
+                    r#type: TokenType::LeftBrace,
+                },
+                Token {
+                    line: 3,
+                    r#type: TokenType::RightBrace,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::Bang,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::Star,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::Plus,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::Minus,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::Slash,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::Assign,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::LessThan,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::GreaterThan,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::LessThanOrEqual,
+                },
+                Token {
+                    line: 4,
+                    r#type: TokenType::Equal,
+                },
+                Token {
+                    line: 5,
+                    r#type: TokenType::EndOfFile,
+                }
+            ]
+        );
     }
 }
