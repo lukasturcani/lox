@@ -36,7 +36,9 @@ fn run_prompt() -> Result<(), anyhow::Error> {
         if line.is_empty() {
             break;
         }
-        run(line.as_bytes())?;
+        if let Err(errors) = run(line.as_bytes()) {
+            println!("{errors:?}")
+        }
         line.clear();
     }
     Ok(())
