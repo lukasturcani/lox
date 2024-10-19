@@ -73,6 +73,7 @@ enum TokenType {
     LessThanOrEqual,
     GreaterThan,
     GreaterThanOrEqual,
+    Slash,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -155,13 +156,26 @@ impl Scanner {
                         self.add_token(TokenType::GreaterThan);
                     }
                 }
+                b'/' => {
+                    if self.r#match(source, b'/') {
+                        while let Some(&p) = self.peek(source) {
+                            if p == b'\n' {
+                                break;
+                            }
+                            self.current += 1
+                        }
+                        self.start = self.current;
+                    } else {
+                        self.add_token(TokenType::Slash);
+                    }
+                }
                 unexpected => {
                     self.errors.push(ScanError::UnexpectedCharacter {
                         character: unexpected as char,
                         line: self.line,
                     });
-                    self.start = self.current;
                     self.current += 1;
+                    self.start = self.current;
                 }
             }
         }
@@ -183,8 +197,8 @@ impl Scanner {
             r#type,
             line: self.line,
         });
-        self.start = self.current;
         self.current += 1;
+        self.start = self.current;
     }
 
     fn peek<'source>(&self, source: &'source [u8]) -> Option<&'source u8> {
