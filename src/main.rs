@@ -71,6 +71,8 @@ enum TokenType {
     Assign,
     LessThan,
     LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -146,6 +148,13 @@ impl Scanner {
                         self.add_token(TokenType::LessThan)
                     }
                 }
+                b'>' => {
+                    if self.r#match(source, b'=') {
+                        self.add_token(TokenType::GreaterThanOrEqual);
+                    } else {
+                        self.add_token(TokenType::GreaterThan);
+                    }
+                }
                 unexpected => {
                     self.errors.push(ScanError::UnexpectedCharacter {
                         character: unexpected as char,
@@ -199,7 +208,7 @@ mod tests {
 
     #[test]
     fn test_scan() {
-        let tokens = scan_tokens(b"(){}!=!(===<<=");
+        let tokens = scan_tokens(b"(){}!=!(===<<=>>=");
         assert_eq!(
             tokens,
             Ok(vec![
@@ -246,6 +255,14 @@ mod tests {
                 Token {
                     line: 1,
                     r#type: TokenType::LessThanOrEqual
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::GreaterThan,
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::GreaterThanOrEqual,
                 },
                 Token {
                     line: 1,
