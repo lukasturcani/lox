@@ -159,12 +159,12 @@ impl Scanner {
                 b'/' => {
                     if self.r#match(source, b'/') {
                         while let Some(&p) = self.peek(source) {
-                            self.current += 1;
                             if p == b'\n' {
                                 break;
                             }
+                            self.current += 1;
                         }
-                        self.start = self.current;
+                        self.advance();
                     } else {
                         self.add_token(TokenType::Slash);
                     }
