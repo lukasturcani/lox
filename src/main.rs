@@ -424,6 +424,18 @@ mod tests {
                     r#type: TokenType::EndOfFile,
                 }
             ]
+        );
+        let tokens = scan_tokens(
+            br#" "b
+            ar" "#,
+        )
+        .unwrap();
+        assert_eq!(
+            tokens[1],
+            Token {
+                line: 2,
+                r#type: TokenType::EndOfFile,
+            }
         )
     }
 }
