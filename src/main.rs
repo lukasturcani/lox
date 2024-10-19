@@ -169,13 +169,17 @@ impl Scanner {
                         self.add_token(TokenType::Slash);
                     }
                 }
+                b' ' | b'\r' | b'\t' => self.advance(),
+                b'\n' => {
+                    self.line += 1;
+                    self.advance();
+                }
                 unexpected => {
                     self.errors.push(ScanError::UnexpectedCharacter {
                         character: unexpected as char,
                         line: self.line,
                     });
-                    self.current += 1;
-                    self.start = self.current;
+                    self.advance();
                 }
             }
         }
@@ -192,13 +196,17 @@ impl Scanner {
         }
     }
 
+    fn advance(&mut self) {
+        self.current += 1;
+        self.start = self.current;
+    }
+
     fn add_token(&mut self, r#type: TokenType) {
         self.tokens.push(Token {
             r#type,
             line: self.line,
         });
-        self.current += 1;
-        self.start = self.current;
+        self.advance();
     }
 
     fn peek<'source>(&self, source: &'source [u8]) -> Option<&'source u8> {
