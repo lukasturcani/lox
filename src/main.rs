@@ -65,6 +65,8 @@ enum TokenType {
     Semicolon,
     Star,
     EndOfFile,
+    Bang,
+    NotEqual,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -106,9 +108,9 @@ impl Scanner {
         }
     }
 
-    fn scan_tokens(mut self, content: &[u8]) -> Result<Vec<Token>, ScanErrors> {
-        while self.current < content.len() {
-            match content[self.current] {
+    fn scan_tokens(mut self, source: &[u8]) -> Result<Vec<Token>, ScanErrors> {
+        while self.current < source.len() {
+            match source[self.current] {
                 b'(' => self.add_token(TokenType::LeftBracket),
                 b')' => self.add_token(TokenType::RightBracket),
                 b'{' => self.add_token(TokenType::LeftBrace),
@@ -119,6 +121,13 @@ impl Scanner {
                 b'+' => self.add_token(TokenType::Plus),
                 b';' => self.add_token(TokenType::Semicolon),
                 b'*' => self.add_token(TokenType::Star),
+                b'!' => {
+                    if self.r#match(source, b'=') {
+                        self.add_token(TokenType::NotEqual);
+                    } else {
+                        self.add_token(TokenType::Bang);
+                    }
+                }
                 unexpected => {
                     self.errors.push(ScanError::UnexpectedCharacter {
                         character: unexpected as char,
@@ -150,6 +159,20 @@ impl Scanner {
         self.start = self.current;
         self.current += 1;
     }
+
+    fn peek<'source>(&self, source: &'source [u8]) -> Option<&'source u8> {
+        source.get(self.current + 1)
+    }
+
+    fn r#match(&mut self, source: &[u8], value: u8) -> bool {
+        if let Some(&x) = self.peek(source) {
+            if value == x {
+                self.current += 1;
+                return true;
+            }
+        }
+        false
+    }
 }
 
 #[cfg(test)]
@@ -158,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_scan() {
-        let tokens = scan_tokens(b"(){}");
+        let tokens = scan_tokens(b"(){}!=!");
         assert_eq!(
             tokens,
             Ok(vec![
@@ -177,6 +200,14 @@ mod tests {
                 Token {
                     line: 1,
                     r#type: TokenType::RightBrace
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::NotEqual
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::Bang,
                 },
                 Token {
                     line: 1,
