@@ -3,6 +3,7 @@
 use std::{
     io::Write,
     path::{Path, PathBuf},
+    str,
 };
 
 use clap::Parser;
@@ -74,6 +75,7 @@ enum TokenType {
     GreaterThan,
     GreaterThanOrEqual,
     Slash,
+    String(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -85,6 +87,8 @@ struct Token {
 #[derive(Debug, PartialEq)]
 enum ScanError {
     UnexpectedCharacter { character: char, line: usize },
+    UnterimatedString { line: usize },
+    Utf8 { source: std::str::Utf8Error },
 }
 
 #[derive(Debug, PartialEq)]
@@ -169,6 +173,7 @@ impl Scanner {
                         self.add_token(TokenType::Slash);
                     }
                 }
+                b'"' => self.handle_string(source),
                 b' ' | b'\r' | b'\t' => self.advance(),
                 b'\n' => {
                     self.line += 1;
@@ -194,6 +199,31 @@ impl Scanner {
                 errors: self.errors,
             })
         }
+    }
+
+    fn handle_string(&mut self, source: &[u8]) {
+        while let Some(&char) = self.peek(source) {
+            self.current += 1;
+            match char {
+                b'\n' => {
+                    self.line += 1;
+                }
+                b'"' => break,
+                _ => {}
+            }
+            if char == b'"' {
+                break;
+            }
+        }
+        if self.peek(source).is_none() {
+            self.errors
+                .push(ScanError::UnterimatedString { line: self.line })
+        }
+        match str::from_utf8(&source[self.start + 1..self.current]) {
+            Ok(str) => self.add_token(TokenType::String(str.to_owned())),
+            Err(source) => self.errors.push(ScanError::Utf8 { source }),
+        }
+        self.advance();
     }
 
     fn advance(&mut self) {
@@ -373,5 +403,27 @@ mod tests {
                 }
             ]
         );
+    }
+
+    #[test]
+    fn scan_string() {
+        let tokens = scan_tokens(br#" "foo" "bar" "#).unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token {
+                    line: 1,
+                    r#type: TokenType::String("foo".into())
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::String("bar".into())
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::EndOfFile,
+                }
+            ]
+        )
     }
 }
