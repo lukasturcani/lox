@@ -43,7 +43,7 @@ fn run_prompt() -> Result<(), anyhow::Error> {
 }
 
 fn run(content: &[u8]) -> Result<(), anyhow::Error> {
-    let tokens = scan_tokens(content).map_err(|error| anyhow::anyhow!("errors {error:?}"))?;
+    let tokens = scan_tokens(content).map_err(|error| anyhow::anyhow!("{error:?}"))?;
     for token in tokens {
         println!("{token:?}")
     }
