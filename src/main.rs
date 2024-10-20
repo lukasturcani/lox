@@ -245,7 +245,7 @@ impl Scanner {
 
     fn handle_identifier(&mut self, source: &[u8]) {
         while let Some(&char) = self.peek(source) {
-            if !char.is_ascii_alphanumeric() || char != b'_' {
+            if !char.is_ascii_alphanumeric() && char != b'_' {
                 break;
             }
             self.current += 1;
