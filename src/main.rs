@@ -76,6 +76,7 @@ enum TokenType {
     GreaterThanOrEqual,
     Slash,
     String(String),
+    Number(f64),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -174,6 +175,7 @@ impl Scanner {
                     }
                 }
                 b'"' => self.handle_string(source),
+                digit if digit.is_ascii_digit() => self.handle_number(source),
                 b' ' | b'\r' | b'\t' => self.advance(),
                 b'\n' => {
                     self.line += 1;
@@ -198,6 +200,32 @@ impl Scanner {
             Err(ScanErrors {
                 errors: self.errors,
             })
+        }
+    }
+
+    fn handle_number(&mut self, source: &[u8]) {
+        while let Some(char) = self.peek(source) {
+            if char.is_ascii_digit() {
+                self.current += 1;
+            } else {
+                break;
+            }
+        }
+        if let Some(&char) = self.peek(source) {
+            if char == b'.' {
+                self.current += 1;
+            }
+        }
+        while let Some(char) = self.peek(source) {
+            if char.is_ascii_digit() {
+                self.current += 1;
+            } else {
+                break;
+            }
+        }
+        match str::from_utf8(&source[self.start..self.current + 1]) {
+            Ok(number) => self.add_token(TokenType::Number(number.parse::<f64>().unwrap())),
+            Err(source) => self.errors.push(ScanError::Utf8 { source }),
         }
     }
 
@@ -436,6 +464,28 @@ mod tests {
                 line: 2,
                 r#type: TokenType::EndOfFile,
             }
+        )
+    }
+
+    #[test]
+    fn scan_number() {
+        let tokens = scan_tokens(b"123.32 123.").unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token {
+                    line: 1,
+                    r#type: TokenType::Number(123.32),
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::Number(123.),
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::EndOfFile,
+                }
+            ]
         )
     }
 }
