@@ -211,10 +211,10 @@ impl Scanner {
                 break;
             }
         }
-        if let Some(&char) = self.peek(source) {
-            if char == b'.' {
-                self.current += 1;
-            }
+        if self.peek(source) == Some(&b'.')
+            && self.peek_next(source).map_or(false, u8::is_ascii_digit)
+        {
+            self.current += 1;
         }
         while let Some(char) = self.peek(source) {
             if char.is_ascii_digit() {
@@ -269,6 +269,10 @@ impl Scanner {
 
     fn peek<'source>(&self, source: &'source [u8]) -> Option<&'source u8> {
         source.get(self.current + 1)
+    }
+
+    fn peek_next<'source>(&self, source: &'source [u8]) -> Option<&'source u8> {
+        source.get(self.current + 2)
     }
 
     fn r#match(&mut self, source: &[u8], value: u8) -> bool {
@@ -469,7 +473,7 @@ mod tests {
 
     #[test]
     fn scan_number() {
-        let tokens = scan_tokens(b"123.32 123.").unwrap();
+        let tokens = scan_tokens(b"123.32 123.12").unwrap();
         assert_eq!(
             tokens,
             vec![
@@ -479,7 +483,7 @@ mod tests {
                 },
                 Token {
                     line: 1,
-                    r#type: TokenType::Number(123.),
+                    r#type: TokenType::Number(123.12),
                 },
                 Token {
                     line: 1,
