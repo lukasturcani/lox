@@ -1,6 +1,7 @@
 #![warn(rust_2018_idioms)]
 
 use std::{
+    collections::HashMap,
     io::Write,
     path::{Path, PathBuf},
     str,
@@ -77,6 +78,23 @@ enum TokenType {
     Slash,
     String(String),
     Number(f64),
+    Identifier(String),
+    And,
+    Class,
+    Else,
+    False,
+    For,
+    Fun,
+    If,
+    Nil,
+    Or,
+    Print,
+    Return,
+    Super,
+    This,
+    True,
+    Var,
+    While,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -100,6 +118,25 @@ struct ScanErrors {
 fn scan_tokens(content: &[u8]) -> Result<Vec<Token>, ScanErrors> {
     Scanner::new().scan_tokens(content)
 }
+
+const KEYWORDS: phf::Map<&'static str, TokenType> = phf::phf_map! {
+    "and" => TokenType::And,
+    "class" => TokenType::Class,
+    "else" => TokenType::Else,
+    "false" => TokenType::False,
+    "for" => TokenType::For,
+    "fun" => TokenType::Fun,
+    "if" => TokenType::If,
+    "nil" => TokenType::Nil,
+    "or" => TokenType::Or,
+    "print" => TokenType::Print,
+    "return" => TokenType::Return,
+    "super" => TokenType::Super,
+    "this" => TokenType::This,
+    "true" => TokenType::True,
+    "var" => TokenType::Var,
+    "while" => TokenType::While,
+};
 
 struct Scanner {
     start: usize,
@@ -176,6 +213,9 @@ impl Scanner {
                 }
                 b'"' => self.handle_string(source),
                 digit if digit.is_ascii_digit() => self.handle_number(source),
+                letter if letter.is_ascii_alphabetic() || letter == b'_' => {
+                    self.handle_identifier(source)
+                }
                 b' ' | b'\r' | b'\t' => self.advance(),
                 b'\n' => {
                     self.line += 1;
@@ -200,6 +240,25 @@ impl Scanner {
             Err(ScanErrors {
                 errors: self.errors,
             })
+        }
+    }
+
+    fn handle_identifier(&mut self, source: &[u8]) {
+        while let Some(&char) = self.peek(source) {
+            if !char.is_ascii_alphanumeric() || char != b'_' {
+                break;
+            }
+            self.current += 1;
+        }
+        let identifier = str::from_utf8(&source[self.start..self.current + 1]).unwrap();
+        if let Some(token) = KEYWORDS.get(identifier) {
+            self.add_token(token.clone())
+        } else {
+            self.add_token(TokenType::Identifier(
+                str::from_utf8(&source[self.start..self.current + 1])
+                    .unwrap()
+                    .into(),
+            ))
         }
     }
 
@@ -484,6 +543,44 @@ mod tests {
                 Token {
                     line: 1,
                     r#type: TokenType::Number(123.12),
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::EndOfFile,
+                }
+            ]
+        )
+    }
+
+    #[test]
+    fn scan_identifier() {
+        let tokens = scan_tokens(b"abc or foo and while bar").unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token {
+                    line: 1,
+                    r#type: TokenType::Identifier("abc".into())
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::Or,
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::Identifier("foo".into())
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::And,
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::While,
+                },
+                Token {
+                    line: 1,
+                    r#type: TokenType::Identifier("bar".into())
                 },
                 Token {
                     line: 1,
