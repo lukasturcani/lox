@@ -66,8 +66,55 @@ impl Parser {
     }
 
     fn equality(&mut self) -> Box<Expr> {
-        let mut expr = self.unary();
+        let mut expr = self.comparison();
         while self.r#match(&[TokenType::NotEqual, TokenType::Equal]) {
+            let operator = self.tokens[self.current - 1].r#type.clone();
+            let right = self.comparison();
+            expr = Box::new(Expr::Binary {
+                left: expr,
+                operator,
+                right,
+            });
+        }
+        expr
+    }
+
+    fn comparison(&mut self) -> Box<Expr> {
+        let mut expr = self.term();
+        while self.r#match(&[
+            TokenType::GreaterThan,
+            TokenType::GreaterThanOrEqual,
+            TokenType::LessThan,
+            TokenType::LessThanOrEqual,
+        ]) {
+            let operator = self.tokens[self.current - 1].r#type.clone();
+            let right = self.term();
+            expr = Box::new(Expr::Binary {
+                left: expr,
+                operator,
+                right,
+            });
+        }
+        expr
+    }
+
+    fn term(&mut self) -> Box<Expr> {
+        let mut expr = self.factor();
+        while self.r#match(&[TokenType::Minus, TokenType::Plus]) {
+            let operator = self.tokens[self.current].r#type.clone();
+            let right = self.factor();
+            expr = Box::new(Expr::Binary {
+                left: expr,
+                operator,
+                right,
+            });
+        }
+        expr
+    }
+
+    fn factor(&mut self) -> Box<Expr> {
+        let mut expr = self.unary();
+        while self.r#match(&[TokenType::Slash, TokenType::Star]) {
             let operator = self.tokens[self.current - 1].r#type.clone();
             let right = self.unary();
             expr = Box::new(Expr::Binary {
@@ -95,10 +142,16 @@ impl Parser {
             value @ TokenType::Number(_) => Box::new(Expr::Literal {
                 value: value.clone(),
             }),
+            value @ TokenType::String(_) => Box::new(Expr::Literal {
+                value: value.clone(),
+            }),
             value @ TokenType::True => Box::new(Expr::Literal {
                 value: value.clone(),
             }),
             value @ TokenType::False => Box::new(Expr::Literal {
+                value: value.clone(),
+            }),
+            value @ TokenType::Nil => Box::new(Expr::Literal {
                 value: value.clone(),
             }),
             TokenType::LeftBracket => {
