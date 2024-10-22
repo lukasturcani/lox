@@ -51,6 +51,8 @@ enum Expr {
     },
 }
 
+struct ParseError;
+
 struct Parser {
     tokens: Vec<Token>,
     current: usize,
@@ -61,26 +63,50 @@ impl Parser {
         Self { tokens, current: 0 }
     }
 
-    fn expression(&mut self) -> Box<Expr> {
+    fn synchronize(&mut self) {
+        self.current += 1;
+        while self.current < self.tokens.len() {
+            if self.tokens[self.current - 1].r#type == TokenType::Semicolon {
+                return;
+            }
+            if let Some(token) = self.tokens.get(self.current + 1) {
+                match token.r#type {
+                    TokenType::Class
+                    | TokenType::Fun
+                    | TokenType::Var
+                    | TokenType::For
+                    | TokenType::If
+                    | TokenType::While
+                    | TokenType::Print
+                    | TokenType::Return => return,
+                    _ => {}
+                }
+            }
+
+            self.current += 1;
+        }
+    }
+
+    fn expression(&mut self) -> Result<Box<Expr>, ParseError> {
         self.equality()
     }
 
-    fn equality(&mut self) -> Box<Expr> {
-        let mut expr = self.comparison();
+    fn equality(&mut self) -> Result<Box<Expr>, ParseError> {
+        let mut expr = self.comparison()?;
         while self.r#match(&[TokenType::NotEqual, TokenType::Equal]) {
             let operator = self.tokens[self.current - 1].r#type.clone();
-            let right = self.comparison();
+            let right = self.comparison()?;
             expr = Box::new(Expr::Binary {
                 left: expr,
                 operator,
                 right,
             });
         }
-        expr
+        Ok(expr)
     }
 
-    fn comparison(&mut self) -> Box<Expr> {
-        let mut expr = self.term();
+    fn comparison(&mut self) -> Result<Box<Expr>, ParseError> {
+        let mut expr = self.term()?;
         while self.r#match(&[
             TokenType::GreaterThan,
             TokenType::GreaterThanOrEqual,
@@ -88,95 +114,95 @@ impl Parser {
             TokenType::LessThanOrEqual,
         ]) {
             let operator = self.tokens[self.current - 1].r#type.clone();
-            let right = self.term();
+            let right = self.term()?;
             expr = Box::new(Expr::Binary {
                 left: expr,
                 operator,
                 right,
             });
         }
-        expr
+        Ok(expr)
     }
 
-    fn term(&mut self) -> Box<Expr> {
-        let mut expr = self.factor();
+    fn term(&mut self) -> Result<Box<Expr>, ParseError> {
+        let mut expr = self.factor()?;
         while self.r#match(&[TokenType::Minus, TokenType::Plus]) {
             let operator = self.tokens[self.current].r#type.clone();
-            let right = self.factor();
+            let right = self.factor()?;
             expr = Box::new(Expr::Binary {
                 left: expr,
                 operator,
                 right,
             });
         }
-        expr
+        Ok(expr)
     }
 
-    fn factor(&mut self) -> Box<Expr> {
-        let mut expr = self.unary();
+    fn factor(&mut self) -> Result<Box<Expr>, ParseError> {
+        let mut expr = self.unary()?;
         while self.r#match(&[TokenType::Slash, TokenType::Star]) {
             let operator = self.tokens[self.current - 1].r#type.clone();
-            let right = self.unary();
+            let right = self.unary()?;
             expr = Box::new(Expr::Binary {
                 left: expr,
                 operator,
                 right,
             });
         }
-        expr
+        Ok(expr)
     }
 
-    fn unary(&mut self) -> Box<Expr> {
+    fn unary(&mut self) -> Result<Box<Expr>, ParseError> {
         if self.r#match(&[TokenType::NotEqual, TokenType::Equal]) {
-            Box::new(Expr::Unary {
+            Ok(Box::new(Expr::Unary {
                 operator: self.tokens[self.current - 1].r#type.clone(),
-                right: self.unary(),
-            })
+                right: self.unary()?,
+            }))
         } else {
             self.primary()
         }
     }
 
-    fn primary(&mut self) -> Box<Expr> {
+    fn primary(&mut self) -> Result<Box<Expr>, ParseError> {
         match &self.tokens[self.current].r#type {
             value @ TokenType::Number(_) => {
                 self.current += 1;
-                Box::new(Expr::Literal {
+                Ok(Box::new(Expr::Literal {
                     value: value.clone(),
-                })
+                }))
             }
             value @ TokenType::String(_) => {
                 self.current += 1;
-                Box::new(Expr::Literal {
+                Ok(Box::new(Expr::Literal {
                     value: value.clone(),
-                })
+                }))
             }
             value @ TokenType::True => {
                 self.current += 1;
-                Box::new(Expr::Literal {
+                Ok(Box::new(Expr::Literal {
                     value: value.clone(),
-                })
+                }))
             }
             value @ TokenType::False => {
                 self.current += 1;
-                Box::new(Expr::Literal {
+                Ok(Box::new(Expr::Literal {
                     value: value.clone(),
-                })
+                }))
             }
             value @ TokenType::Nil => {
                 self.current += 1;
-                Box::new(Expr::Literal {
+                Ok(Box::new(Expr::Literal {
                     value: value.clone(),
-                })
+                }))
             }
             TokenType::LeftBracket => {
                 self.current += 1;
-                let expression = self.expression();
+                let expression = self.expression()?;
                 assert_eq!(self.tokens[self.current].r#type, TokenType::RightBracket);
                 self.current += 1;
-                Box::new(Expr::Grouping { expression })
+                Ok(Box::new(Expr::Grouping { expression }))
             }
-            _ => panic!("unexpected token"),
+            _ => Err(ParseError),
         }
     }
 
