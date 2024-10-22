@@ -161,7 +161,7 @@ impl Parser {
                 self.current += 1;
                 Box::new(Expr::Grouping { expression })
             }
-            _ => panic!("unexpected toknen"),
+            _ => panic!("unexpected token"),
         }
     }
 
