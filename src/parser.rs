@@ -139,21 +139,36 @@ impl Parser {
 
     fn primary(&mut self) -> Box<Expr> {
         match &self.tokens[self.current].r#type {
-            value @ TokenType::Number(_) => Box::new(Expr::Literal {
-                value: value.clone(),
-            }),
-            value @ TokenType::String(_) => Box::new(Expr::Literal {
-                value: value.clone(),
-            }),
-            value @ TokenType::True => Box::new(Expr::Literal {
-                value: value.clone(),
-            }),
-            value @ TokenType::False => Box::new(Expr::Literal {
-                value: value.clone(),
-            }),
-            value @ TokenType::Nil => Box::new(Expr::Literal {
-                value: value.clone(),
-            }),
+            value @ TokenType::Number(_) => {
+                self.current += 1;
+                Box::new(Expr::Literal {
+                    value: value.clone(),
+                })
+            }
+            value @ TokenType::String(_) => {
+                self.current += 1;
+                Box::new(Expr::Literal {
+                    value: value.clone(),
+                })
+            }
+            value @ TokenType::True => {
+                self.current += 1;
+                Box::new(Expr::Literal {
+                    value: value.clone(),
+                })
+            }
+            value @ TokenType::False => {
+                self.current += 1;
+                Box::new(Expr::Literal {
+                    value: value.clone(),
+                })
+            }
+            value @ TokenType::Nil => {
+                self.current += 1;
+                Box::new(Expr::Literal {
+                    value: value.clone(),
+                })
+            }
             TokenType::LeftBracket => {
                 self.current += 1;
                 let expression = self.expression();
