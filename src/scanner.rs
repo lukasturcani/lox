@@ -64,8 +64,8 @@ pub enum TokenType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
-    r#type: TokenType,
-    line: usize,
+    pub r#type: TokenType,
+    pub line: usize,
 }
 
 pub fn scan_tokens(content: &[u8]) -> Result<Vec<Token>, ScanErrors> {
