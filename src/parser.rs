@@ -52,8 +52,15 @@ pub enum Expr {
     },
 }
 
-pub fn parse(tokens: Vec<Token>) -> Result<Box<Expr>, ParseError> {
-    Parser::new(tokens).expression()
+pub enum Statement {}
+
+pub fn parse(tokens: Vec<Token>) -> Result<Vec<Statement>, ParseError> {
+    let mut statements = Vec::new();
+    let mut parser = Parser::new(tokens);
+    while parser.current < parser.tokens.len() {
+        statements.push(parser.statement()?);
+    }
+    Ok(statements)
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -91,6 +98,10 @@ impl Parser {
 
             self.current += 1;
         }
+    }
+
+    fn statement(&mut self) -> Result<Statement, ParseError> {
+        todo!()
     }
 
     fn expression(&mut self) -> Result<Box<Expr>, ParseError> {
